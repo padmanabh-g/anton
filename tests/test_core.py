@@ -120,3 +120,14 @@ def test_telegram_proposal_update_is_durable_and_idempotent(db):
     assert first == second
     with pytest.raises(Conflict):
         db.propose(i["id"], "page_team", "42", "telegram", event_id="update-1")
+
+
+def test_voice_approval_cannot_be_consumed_from_another_conversation(db):
+    i = alert(db)
+    first = db.propose(i["id"], "dispatch_fix", "oncall", "voice:conversation-one")
+    with pytest.raises(Conflict):
+        db.approve(first["token"], "oncall", "voice:conversation-two")
+    assert (
+        db.approve(first["token"], "oncall", "voice:conversation-one")["kind"]
+        == "dispatch_fix"
+    )

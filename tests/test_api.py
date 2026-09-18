@@ -17,6 +17,7 @@ def client(tmp_path):
                 telegram_chat_id="1",
                 telegram_user_ids="2",
                 operator_secret="op",
+                elevenlabs_webhook_secret="test-webhook-secret",
                 worker_enabled="false",
             )
         )
@@ -139,3 +140,65 @@ def test_manual_unknown_outcome_is_audited_and_does_not_retry(tmp_path):
         assert response.status_code == 200
         assert db.action(action["id"])["status"] == "succeeded"
         assert db.timeline(i["id"])[-1]["kind"] == "manual_reconciliation"
+
+
+def test_elevenlabs_signature_timestamp_and_replay_receipt(tmp_path):
+    import hashlib
+    import hmac
+    import json
+    import time
+
+    with client(tmp_path) as c:
+        db = c.app.state.db
+        i = db.ingest(
+            {
+                "event_id": "e",
+                "run_id": "r",
+                "monitor_id": "m",
+                "group": "g",
+                "occurrence": "o",
+                "status": "alert",
+                "deployed_sha": "a" * 40,
+            }
+        )
+        db.bind_call(i["id"], "conversation", "call", "initial")
+        raw = json.dumps(
+            {
+                "type": "post_call_transcription",
+                "data": {"conversation_id": "conversation", "status": "done"},
+            }
+        ).encode()
+
+        def header(stamp):
+            signature = hmac.new(
+                b"test-webhook-secret", str(stamp).encode() + b"." + raw, hashlib.sha256
+            ).hexdigest()
+            return {
+                "ElevenLabs-Signature": f"t={stamp},v0={signature}",
+                "Content-Type": "application/json",
+            }
+
+        assert (
+            c.post(
+                "/webhooks/elevenlabs",
+                content=raw,
+                headers=header(int(time.time()) - 301),
+            ).status_code
+            == 401
+        )
+        valid = header(int(time.time()))
+        assert (
+            c.post(
+                "/webhooks/elevenlabs", content=raw + b" ", headers=valid
+            ).status_code
+            == 401
+        )
+        assert (
+            c.post("/webhooks/elevenlabs", content=raw, headers=valid).status_code
+            == 200
+        )
+        assert (
+            c.post("/webhooks/elevenlabs", content=raw, headers=valid).status_code
+            == 200
+        )
+        assert len([e for e in db.timeline(i["id"]) if e["kind"] == "call_status"]) == 1
