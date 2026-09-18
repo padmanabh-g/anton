@@ -1,0 +1,18 @@
+{
+  "format": "anton-provider-neutral-contract-v1",
+  "note": "Provision using the current ElevenLabs API tool schema. Identity fields must be system/dynamic bindings, never LLM-authored values. This file is not a raw provider create-agent request.",
+  "server_base_url": "https://REPLACE_RAILWAY_DOMAIN",
+  "headers": {"X-Anton-Secret": {"source": "server_secret", "name": "ANTON_VOICE_SECRET"}},
+  "identity_fields": {
+    "conversation_id": {"source": "system_dynamic_variable", "name": "system__conversation_id"},
+    "run_id": {"source": "initiation_dynamic_variable", "name": "run_id"}
+  },
+  "tools": [
+    {"name": "dispatch_fix", "method": "POST", "path": "/voice/propose", "constant_body": {"action": "dispatch_fix"}, "description": "Propose investigation and a hotfix PR. Read back response; do not approve until explicit responder confirmation."},
+    {"name": "rollback", "method": "POST", "path": "/voice/propose", "constant_body": {"action": "rollback"}, "description": "Propose revert PR for server-configured seed on exact base. Read action, commit SHA, base SHA. Separate alternative to investigation."},
+    {"name": "page_team", "method": "POST", "path": "/voice/propose", "constant_body": {"action": "page_team"}, "description": "Propose an additional Telegram page to configured team. Read back and ask approval."},
+    {"name": "approve_action", "method": "POST", "path": "/voice/approve", "constant_body": {"confirmed": true}, "llm_fields": {"token": "Exact token returned by proposal"}, "description": "Consume a proposal only after clear explicit spoken approval of its readback. For ambiguity ask a clarification and do not execute."}
+  ],
+  "responder_policy": "Only the server-configured phone number is called. Never accept a number, repository, branch, incident ID, or run ID from the LLM as an authorization source.",
+  "result_policy": "Verified PR ready for review, not deployed; never claim service recovery."
+}
