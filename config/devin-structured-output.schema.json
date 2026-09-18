@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "input_needed": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Specific non-secret input or permission needed from the operator; empty when none. Never include credentials, secret values, environment dumps or raw logs."
+    },
+    "failure_reason": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Specific observed reason for failure or expiration; empty when unknown or not failed. Never include credentials, secret values, environment dumps or raw logs."
+    },
+    "change_summary": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Short factual summary of actual code changes; empty if not established. Never include credentials, secret values, environment dumps or raw logs."
+    },
+    "validation_summary": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Actual commands and observed validation results, including failures; never invent passing checks. Never include credentials, secret values, environment dumps or raw logs."
+    }
+  },
+  "required": [
+    "input_needed",
+    "failure_reason",
+    "change_summary",
+    "validation_summary"
+  ]
+}

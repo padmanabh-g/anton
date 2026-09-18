@@ -7,6 +7,8 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
+from .summaries import summary_lines
+
 
 class Conflict(Exception):
     pass
@@ -804,6 +806,8 @@ class Store:
                     + evidence["head"]
                     + "\nRegression checks passed: 1000 accepted, 999 rejected, normal checkout and RUM preserved. "
                     + js(evidence["checks"])
+                    + "\n"
+                    + summary_lines(evidence.get("provider_summary", {}))
                 },
             )
             self._enqueue(

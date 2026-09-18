@@ -218,3 +218,73 @@ def test_cancelled_attempt_cannot_mark_new_strategy_ready(db):
     asyncio.run(w.poll(db.incident(i["id"])))
     assert db.incident(i["id"])["state"] == "awaiting_approval"
     assert db.incident(i["id"])["pr_head"] is None
+
+
+def test_blocked_session_reports_specific_required_input_and_progress(db):
+    i = dispatch(db)
+    p = Fake()
+    w = Worker(db, p)
+    asyncio.run(drain(w))
+
+    async def blocked(id):
+        return {
+            "status_enum": "blocked",
+            "structured_output": {
+                "input_needed": "Grant repository access to the Devin integration.",
+                "failure_reason": "",
+                "change_summary": "No changes made.",
+                "validation_summary": "Checkout tests could not run because clone failed.",
+            },
+        }
+
+    p.session = blocked
+    asyncio.run(w.poll(db.incident(i["id"])))
+    asyncio.run(drain(w))
+    assert db.incident(i["id"])["state"] == "blocked"
+    assert any(
+        "Grant repository access" in message and "clone failed" in message
+        for message in p.messages
+    )
+    assert any(
+        "Grant repository access" in event["data"] for event in db.timeline(i["id"])
+    )
+
+
+def test_expired_session_reports_provider_failure_reason(db):
+    i = dispatch(db)
+    p = Fake()
+    w = Worker(db, p)
+    asyncio.run(drain(w))
+
+    async def expired(id):
+        return {
+            "status_enum": "expired",
+            "structured_output": {
+                "failure_reason": "Session compute limit reached before regression validation."
+            },
+        }
+
+    p.session = expired
+    asyncio.run(w.poll(db.incident(i["id"])))
+    asyncio.run(drain(w))
+    assert db.incident(i["id"])["state"] == "failed"
+    assert any("compute limit reached" in message for message in p.messages)
+
+
+def test_blocked_without_structured_reason_reports_omission_honestly(db):
+    i = dispatch(db)
+    p = Fake()
+    w = Worker(db, p)
+    asyncio.run(drain(w))
+
+    async def blocked(id):
+        return {"status_enum": "blocked", "structured_output": None}
+
+    p.session = blocked
+    asyncio.run(w.poll(db.incident(i["id"])))
+    asyncio.run(drain(w))
+    assert any(
+        "did not supply the required input" in message
+        and "https://app.devin.ai/s" in message
+        for message in p.messages
+    )

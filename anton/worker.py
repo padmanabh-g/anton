@@ -6,6 +6,7 @@ import time
 
 from .providers import NotReady, ProviderFailure, UnknownOutcome
 from .store import Conflict
+from .summaries import session_summary, summary_lines
 
 
 class Worker:
@@ -186,13 +187,26 @@ class Worker:
                 return
             session = await self.p.session(i["session_id"])
             status = session.get("status_enum", session.get("status", ""))
+            summary = session_summary(session, self.db.settings)
             if i["state"] != "pr_ready" and status in ("blocked", "expired", "failed"):
                 self.db.outcome(
                     i["id"],
                     "blocked" if status == "blocked" else "failed",
                     "Devin "
                     + status
-                    + ". Review the session for required input: "
+                    + ". "
+                    + (
+                        "The provider did not supply the required input. "
+                        if status == "blocked" and not summary["input_needed"]
+                        else ""
+                    )
+                    + (
+                        "The provider did not supply a failure reason. "
+                        if status != "blocked" and not summary["failure_reason"]
+                        else ""
+                    )
+                    + summary_lines(summary)
+                    + "\nReview session: "
                     + i["session_url"],
                     expected=i,
                 )
@@ -210,6 +224,9 @@ class Worker:
             evidence = await self.p.verify_pr(i, number)
             if i["state"] == "pr_ready" and i["pr_head"] == evidence["head"]:
                 return
+            evidence["provider_summary"] = {
+                key: value for key, value in summary.items() if value
+            }
             self.db.mark_ready(i["id"], evidence, expected=i)
         except NotReady as e:
             self.incomplete(i, str(e))

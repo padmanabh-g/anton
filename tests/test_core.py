@@ -131,3 +131,26 @@ def test_voice_approval_cannot_be_consumed_from_another_conversation(db):
         db.approve(first["token"], "oncall", "voice:conversation-one")["kind"]
         == "dispatch_fix"
     )
+
+
+def test_prepared_voice_choices_execute_only_explicitly_approved_tokens(db):
+    i = alert(db)
+    fix = db.propose(i["id"], "dispatch_fix", "oncall", "voice:conversation")
+    page = db.propose(i["id"], "page_team", "oncall", "voice:conversation")
+    assert not any(
+        a["kind"] in ("dispatch_fix", "page_team") for a in db.actions(i["id"])
+    )
+    db.approve(fix["token"], "oncall", "voice:conversation")
+    assert not any(a["kind"] == "page_team" for a in db.actions(i["id"]))
+    # One utterance may name both; only then consume the second token as well.
+    db.approve(page["token"], "oncall", "voice:conversation")
+    assert (
+        len(
+            [
+                a
+                for a in db.actions(i["id"])
+                if a["kind"] in ("dispatch_fix", "page_team")
+            ]
+        )
+        == 2
+    )

@@ -9,7 +9,7 @@ Autonomous Night-Time Operations Navigator. A standalone FastAPI incident comman
 ```sh
 python3 -m venv .venv
 .venv/bin/pip install --constraint requirements.lock -e '.[dev]'
-cp .env.example ../.env
+cp -n .env.example ../.env  # Preserve an existing workspace credential file
 # Fill ../.env; local DB path should be ./data/anton.db
 .venv/bin/uvicorn anton.main:app --env-file ../.env --port 8000 --no-access-log
 ```

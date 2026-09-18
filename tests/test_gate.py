@@ -190,3 +190,39 @@ def test_dispatch_rechecks_authorization_after_preflight():
     with pytest.raises(ProviderFailure):
         asyncio.run(p.dispatch(i, can_execute=lambda: active))
     assert posted == []
+
+
+def test_dispatch_requests_bounded_structured_output_schema():
+    from dataclasses import replace
+
+    p = GitHub()
+    p.s = replace(p.s, devin_api_key="test-only")
+    payloads = []
+
+    async def request(method, url, headers=None, data=None):
+        payloads.append(data)
+        return {"session_id": "s", "url": "https://app.devin.ai/s"}
+
+    p.request = request
+    asyncio.run(
+        p.dispatch(
+            {
+                "id": "id",
+                "run_id": "r",
+                "branch": "anton/r/id",
+                "deployed_sha": "a" * 40,
+            }
+        )
+    )
+    schema = payloads[0]["structured_output_schema"]
+    assert schema["type"] == "object"
+    assert set(schema["required"]) == {
+        "input_needed",
+        "failure_reason",
+        "change_summary",
+        "validation_summary",
+    }
+    assert all(
+        field["type"] == "string" and field["maxLength"] <= 1000
+        for field in schema["properties"].values()
+    )

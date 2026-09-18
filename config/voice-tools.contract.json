@@ -2,17 +2,70 @@
   "format": "anton-provider-neutral-contract-v1",
   "note": "Provision using the current ElevenLabs API tool schema. Identity fields must be system/dynamic bindings, never LLM-authored values. This file is not a raw provider create-agent request.",
   "server_base_url": "https://REPLACE_RAILWAY_DOMAIN",
-  "headers": {"X-Anton-Secret": {"source": "server_secret", "name": "ANTON_VOICE_SECRET"}},
+  "headers": {
+    "X-Anton-Secret": {
+      "source": "server_secret",
+      "name": "ANTON_VOICE_SECRET"
+    }
+  },
   "identity_fields": {
-    "conversation_id": {"source": "system_dynamic_variable", "name": "system__conversation_id"},
-    "run_id": {"source": "initiation_dynamic_variable", "name": "run_id"}
+    "conversation_id": {
+      "source": "system_dynamic_variable",
+      "name": "system__conversation_id"
+    },
+    "run_id": {
+      "source": "initiation_dynamic_variable",
+      "name": "run_id"
+    }
   },
   "tools": [
-    {"name": "dispatch_fix", "method": "POST", "path": "/voice/propose", "constant_body": {"action": "dispatch_fix"}, "description": "Propose investigation and a hotfix PR. Read back response; do not approve until explicit responder confirmation."},
-    {"name": "rollback", "method": "POST", "path": "/voice/propose", "constant_body": {"action": "rollback"}, "description": "Propose revert PR for server-configured seed on exact base. Read action, commit SHA, base SHA. Separate alternative to investigation."},
-    {"name": "page_team", "method": "POST", "path": "/voice/propose", "constant_body": {"action": "page_team"}, "description": "Propose an additional Telegram page to configured team. Read back and ask approval."},
-    {"name": "approve_action", "method": "POST", "path": "/voice/approve", "constant_body": {"confirmed": true}, "llm_fields": {"token": "Exact token returned by proposal"}, "description": "Consume a proposal only after clear explicit spoken approval of its readback. For ambiguity ask a clarification and do not execute."}
+    {
+      "name": "dispatch_fix",
+      "method": "POST",
+      "path": "/voice/propose",
+      "constant_body": {
+        "action": "dispatch_fix"
+      },
+      "description": "Prepare the initial investigation/hotfix proposal without execution. Read it together with the separate team-page proposal before asking which actions to approve."
+    },
+    {
+      "name": "rollback",
+      "method": "POST",
+      "path": "/voice/propose",
+      "constant_body": {
+        "action": "rollback"
+      },
+      "description": "Propose revert PR for server-configured seed on exact base. Read action, commit SHA, base SHA. Separate alternative to investigation."
+    },
+    {
+      "name": "page_team",
+      "method": "POST",
+      "path": "/voice/propose",
+      "constant_body": {
+        "action": "page_team"
+      },
+      "description": "Prepare the initial team-page proposal without execution. Read it together with the separate investigation proposal before asking which actions to approve."
+    },
+    {
+      "name": "approve_action",
+      "method": "POST",
+      "path": "/voice/approve",
+      "constant_body": {
+        "confirmed": true
+      },
+      "llm_fields": {
+        "token": "Exact token returned by proposal"
+      },
+      "description": "Consume the prepared token only for an action explicitly named in approval after its readback. One utterance approving dispatch and paging permits two calls with separate tokens; no second spoken confirmation is needed. Do not consume tokens for unapproved actions. Clarify ambiguous speech."
+    }
   ],
   "responder_policy": "Only the server-configured phone number is called. Never accept a number, repository, branch, incident ID, or run ID from the LLM as an authorization source.",
-  "result_policy": "Verified PR ready for review, not deployed; never claim service recovery."
+  "result_policy": "Verified PR ready for review, not deployed; never claim service recovery.",
+  "initial_call_sequence": [
+    "Prepare dispatch_fix and page_team proposals immediately after server conversation binding; proposal tools do not execute either action.",
+    "Brief observations and read a combined plain-language proposal: investigate the checkout issue and open a PR for review without deployment; separately page the configured team in Telegram. Ask which named actions the responder approves.",
+    "One explicit utterance may approve dispatch_fix, page_team, or both. Call approve_action once for each and only each named action using its separate prepared token; do not demand another confirmation after clear approval of already-read actions.",
+    "If speech is ambiguous, clarify before consuming any token. An unrequested action stays unconsumed. Expired proposals must be refreshed and read back before fresh confirmation.",
+    "Rollback is prepared only on request. Read back the revert action and exact seed/base commit targets, then require its separate explicit confirmation. Never combine rollback with dispatch_fix."
+  ]
 }
