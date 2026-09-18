@@ -21,11 +21,11 @@ Initially no Datadog, ElevenLabs, Twilio, Devin, Telegram, GitHub-token or Cloud
 
 ## Setup still needed for live acceptance
 
-- Approved credentials/config source and repository-scoped GitHub API credential.
+- Local `.env` source is established. Repository-scoped GitHub API credential, Datadog API/application keys and browser RUM configuration remain missing.
 - Dedicated Railway service with stable HTTPS and persistent volume mounted at the configured database path.
 - ElevenLabs agent using Gemini, native imported Twilio number, configured responder E.164 number, authenticated tools with system conversation binding.
-- Telegram bot, private on-call chat and allowed acting user IDs; HTTPS webhook with secret.
-- Devin API key and repository connection; establish v1 access before relying on the adapter.
+- Telegram token and allowlisted chat/user IDs are filled; the webhook secret is generated. Register the HTTPS webhook after deployment.
+- Devin v1 read-only API access is verified; connect the target repository and verify an approved real session during rehearsal.
 - Cloudflare demo deployment tracking `demo/buggy`, public Datadog RUM application/client token, active run ID and deployed SHA.
 - Real Datadog RUM count monitor, scoped to active rehearsal, five validation errors in one minute; authenticated normalized webhook.
 - Two consecutive real rehearsals and measured timings. No live calls, messages, Devin sessions, monitor firing, or recovery have been claimed by this implementation session.
@@ -36,3 +36,5 @@ Initially no Datadog, ElevenLabs, Twilio, Devin, Telegram, GitHub-token or Cloud
 - [ElevenLabs dynamic variables](https://elevenlabs.io/docs/eleven-agents/customization/personalization/dynamic-variables)
 - [Devin v1 create](https://docs.devin.ai/api-reference/v1/sessions/create-a-new-devin-session) and [retrieve](https://docs.devin.ai/api-reference/v1/sessions/retrieve-details-about-an-existing-session): intentionally pin legacy v1; CLI authentication does not establish API access.
 - [Datadog webhook integration](https://docs.datadoghq.com/integrations/webhooks/) and [RUM monitors](https://docs.datadoghq.com/monitors/types/real_user_monitoring/).
+
+Local secret helper verification: repeated generation preserves an existing secret and unrelated env fields; the secret file mode is 0600. A scan of repository files against configured credential values found no leaks.
